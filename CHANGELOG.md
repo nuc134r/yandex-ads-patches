@@ -1,3 +1,10 @@
+# 1.0.0 (2026-10-03)
+
+
+### Features
+
+* **Yandex Weather:** Add `Hide ads` patch ([9415af1](https://github.com/nuc134r/yandex-ads-patches/commit/9415af12908fda7571befbeb8589af27bb88e9c8))
+
 ## [1.0.4](https://github.com/ReVanced/revanced-patches-template/compare/v1.0.3...v1.0.4) (2024-11-05)
 
 ## [1.0.4-dev.2](https://github.com/ReVanced/revanced-patches-template/compare/v1.0.4-dev.1...v1.0.4-dev.2) (2024-11-05)
