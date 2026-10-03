@@ -18,12 +18,19 @@
     "@semantic-release/changelog",
     "gradle-semantic-release-plugin",
     [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "node .github/scripts/write-patches-bundle.js ${nextRelease.version}"
+      }
+    ],
+    [
       "@semantic-release/git",
       {
         "assets": [
           "README.md",
           "CHANGELOG.md",
           "gradle.properties",
+          "patches-bundle.json",
         ],
         "message": "chore: Release v${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
