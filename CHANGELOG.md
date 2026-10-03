@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/nuc134r/yandex-ads-patches/compare/v1.0.0...v1.0.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* Update to ReVanced Patcher v22 ([85b0f6e](https://github.com/nuc134r/yandex-ads-patches/commit/85b0f6e0d14ebb4bcb573aff31d75bb0b7baf226))
+
 # 1.0.0 (2026-10-03)
 
 
