@@ -11,3 +11,8 @@ patches {
         license = "GNU General Public License v3.0"
     }
 }
+
+// Releases are not GPG signed. The patches plugin signs the publication with the gpg command otherwise.
+tasks.withType<Sign>().configureEach {
+    enabled = false
+}
