@@ -1,4 +1,4 @@
-public final class app/revanced/patches/example/ExamplePatchKt {
-	public static final fun getExamplePatch ()Lapp/revanced/patcher/patch/BytecodePatch;
+public final class app/revanced/patches/yandex/weather/ads/HideAdsPatchKt {
+	public static final fun getHideAdsPatch ()Lapp/revanced/patcher/patch/BytecodePatch;
 }
 
