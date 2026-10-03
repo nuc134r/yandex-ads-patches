@@ -1,12 +1,11 @@
 package app.revanced.patches.yandex.weather.ads
 
-import app.revanced.patcher.extensions.InstructionExtensions.addInstructions
-import app.revanced.patcher.extensions.InstructionExtensions.addInstructionsWithLabels
-import app.revanced.patcher.extensions.InstructionExtensions.getInstruction
+import app.revanced.com.android.tools.smali.dexlib2.mutable.MutableMethod
+import app.revanced.patcher.extensions.ExternalLabel
+import app.revanced.patcher.extensions.addInstructions
+import app.revanced.patcher.extensions.addInstructionsWithLabels
 import app.revanced.patcher.patch.PatchException
 import app.revanced.patcher.patch.bytecodePatch
-import app.revanced.patcher.util.proxy.mutableTypes.MutableMethod
-import app.revanced.patcher.util.smali.ExternalLabel
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.util.MethodUtil
 
@@ -36,8 +35,8 @@ val hideAdsPatch = bytecodePatch(
 
     extendWith("extensions/extension.rve")
 
-    execute {
-        val loadMethods = classes
+    apply {
+        val loadMethods = classDefs
             .filter { isAdLoader(it.type) }
             .flatMap { classDef ->
                 classDef.methods
@@ -56,7 +55,7 @@ val hideAdsPatch = bytecodePatch(
         loadMethods
             .groupBy({ it.first }, { it.second })
             .forEach { (classDef, methods) ->
-                val mutableClass = proxy(classDef).mutableClass
+                val mutableClass = classDefs.getOrReplaceMutable(classDef)
                 methods.forEach { method ->
                     mutableClass.methods.first { MethodUtil.methodSignaturesMatch(it, method) }.blockLoad()
                 }
@@ -79,7 +78,7 @@ private fun MutableMethod.blockLoad() {
                 if-eqz v0, :load
                 return-object v0
             """,
-            ExternalLabel("load", getInstruction(0)),
+            ExternalLabel("load", implementation!!.instructions.first()),
         )
         return
     }
