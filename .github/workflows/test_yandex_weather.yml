@@ -91,6 +91,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: |
+            adb wait-for-device
             adb install original-signed.apk 2>&1 | tee test-output/install-original.log
             adb install patched.apk 2>&1 | tee test-output/install-patched.log
             adb logcat -c
@@ -99,7 +100,12 @@ jobs:
             adb shell dumpsys activity activities | grep -E 'ResumedActivity|mFocusedApp' | tee test-output/activities.txt
             adb exec-out screencap -p > test-output/screenshot.png
             adb logcat -d > test-output/logcat.txt
-            grep -E "AndroidRuntime|FATAL|$PATCHED_PACKAGE|revanced" test-output/logcat.txt | head -n 300 > test-output/logcat-filtered.txt || true
+            adb shell pm list packages | grep yandex | tee test-output/packages.txt
+            pid=$(adb shell pidof "$PATCHED_PACKAGE" || true)
+            echo "Patched app process: ${pid:-not running}"
+            grep -E -A 30 "FATAL EXCEPTION|AndroidRuntime: Process|ANR in" test-output/logcat.txt | head -n 200 || true
+            grep -E "ActivityTaskManager: (START|Displayed)|ActivityManager: (Start proc|Process .* has died|Killing)" test-output/logcat.txt \
+              | grep -E "weatherplugin" | head -n 50 || true
 
       - name: Upload results
         if: always()
