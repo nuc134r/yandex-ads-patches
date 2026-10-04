@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/nuc134r/yandex-ads-patches/compare/v1.0.1...v1.0.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* Set patches bundle metadata ([ead94ae](https://github.com/nuc134r/yandex-ads-patches/commit/ead94aef4351d57ba13bc9b645d16df28fd6384c))
+
 ## [1.0.1](https://github.com/nuc134r/yandex-ads-patches/compare/v1.0.0...v1.0.1) (2026-10-03)
 
 
