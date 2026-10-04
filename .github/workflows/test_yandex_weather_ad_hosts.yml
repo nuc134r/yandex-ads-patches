@@ -12,7 +12,7 @@ on:
         required: true
         default: Yandex+Weather+.+Rain+Radar_26.9.50_APKPure.xapk
       blocked_domains:
-        description: Space separated domains to block, including their subdomains
+        description: Space separated domains to block, including their subdomains. Prefix a domain with = to block only that host
         required: false
         default: ""
 
@@ -74,7 +74,10 @@ jobs:
 
           block_args=""
           for domain in ${{ inputs.blocked_domains }}; do
-            block_args="$block_args --address=/$domain/0.0.0.0 --address=/$domain/::"
+            case "$domain" in
+              =*) block_args="$block_args --host-record=${domain#=},0.0.0.0,::" ;;
+              *) block_args="$block_args --address=/$domain/0.0.0.0 --address=/$domain/::" ;;
+            esac
           done
           echo "Blocked: ${{ inputs.blocked_domains }}"
 
@@ -136,7 +139,7 @@ jobs:
           echo "Resolved domains:"
           grep -oE 'query\[(A|AAAA)\] [^ ]+' /tmp/dnsmasq.log | awk '{print $2}' | sort | uniq -c | sort -rn
           echo "Blocked queries:"
-          grep -E 'config .* is (0\.0\.0\.0|::)' /tmp/dnsmasq.log | awk '{print $(NF-2)}' | sort | uniq -c | sort -rn || true
+          grep -E '(config|/etc/hosts|host-record) .* is (0\.0\.0\.0|::)' /tmp/dnsmasq.log | awk '{print $(NF-2)}' | sort | uniq -c | sort -rn || true
 
       - name: Upload results
         if: always()
