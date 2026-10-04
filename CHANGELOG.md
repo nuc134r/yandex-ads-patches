@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/nuc134r/yandex-ads-patches/compare/v1.0.2...v1.1.0) (2026-10-04)
+
+
+### Features
+
+* **Yandex Weather:** Add `Remove shared permissions` patch ([3985d54](https://github.com/nuc134r/yandex-ads-patches/commit/3985d5473fca49e1ec865eaf7a60cdc29d8ed3a3))
+
 ## [1.0.2](https://github.com/nuc134r/yandex-ads-patches/compare/v1.0.1...v1.0.2) (2026-10-04)
 
 
