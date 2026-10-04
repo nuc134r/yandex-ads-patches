@@ -1,6 +1,7 @@
 package app.revanced.patches.yandex.weather.misc
 
 import app.revanced.patcher.extensions.addInstruction
+import app.revanced.patcher.extensions.addInstructions
 import app.revanced.patcher.patch.PatchException
 import app.revanced.patcher.patch.bytecodePatch
 import app.revanced.patcher.patch.resourcePatch
@@ -26,6 +27,18 @@ private const val AUTHORITY_SUFFIX = ".revanced"
  */
 private const val DATABASE_AUTHORITY_SUFFIX = ".weather.core"
 
+/**
+ * The account library declares authorities like "com.yandex.passport.internal.provider.<package name>".
+ * "Change package name" only updates authorities starting with the package name,
+ * so they are changed to "<package name>.passport.internal.provider".
+ */
+private const val PASSPORT_AUTHORITY_PREFIX = "com.yandex."
+
+/**
+ * The account library builds the authority of its internal provider from this prefix and the package name.
+ */
+private const val PASSPORT_INTERNAL_PROVIDER_PREFIX = "com.yandex.passport.internal.provider."
+
 private val renameContentProvidersResourcePatch = resourcePatch {
     apply {
         val stringNames = mutableSetOf<String>()
@@ -45,7 +58,13 @@ private val renameContentProvidersResourcePatch = resourcePatch {
                                 authority
                             }
                             // Updated by "Change package name".
-                            authority.contains(PACKAGE_NAME) -> authority
+                            authority.startsWith(PACKAGE_NAME) -> authority
+                            authority.startsWith(PASSPORT_AUTHORITY_PREFIX) && authority.endsWith(".$PACKAGE_NAME") ->
+                                PACKAGE_NAME + "." + authority
+                                    .removePrefix(PASSPORT_AUTHORITY_PREFIX)
+                                    .removeSuffix(".$PACKAGE_NAME")
+                            authority.contains(PACKAGE_NAME) ->
+                                throw PatchException("Unexpected provider authority: $authority")
                             authority.startsWith("@") ->
                                 throw PatchException("Unexpected provider authority reference: $authority")
                             else -> authority + AUTHORITY_SUFFIX
@@ -84,25 +103,45 @@ val renameContentProvidersPatch = bytecodePatch(
     dependsOn(renameContentProvidersResourcePatch)
 
     apply {
-        // Methods that choose the database authority based on the package name.
-        val methods = classDefs.flatMap { classDef ->
+        fun methodsWithString(string: String) = classDefs.flatMap { classDef ->
             classDef.methods
                 .filter { method ->
                     method.implementation?.instructions?.any {
                         (it as? ReferenceInstruction)?.reference.let { reference ->
-                            reference is StringReference && reference.string == DATABASE_AUTHORITY_SUFFIX
+                            reference is StringReference && reference.string == string
                         }
                     } == true
                 }
                 .map { classDef to it }
+        }.ifEmpty { throw PatchException("Could not find methods using \"$string\"") }.map { (classDef, method) ->
+            classDefs.getOrReplaceMutable(classDef).methods.first { MethodUtil.methodSignaturesMatch(it, method) }
         }
 
-        if (methods.isEmpty()) throw PatchException("Could not find the database authority methods")
-
-        methods.forEach { (classDef, method) ->
-            val mutableMethod = classDefs.getOrReplaceMutable(classDef).methods.first {
-                MethodUtil.methodSignaturesMatch(it, method)
+        // Build the authority of the account library's internal provider like the patched manifest declares it.
+        methodsWithString(PASSPORT_INTERNAL_PROVIDER_PREFIX)
+            .filter { it.returnType == "Landroid/net/Uri;" && it.parameterTypes.map(CharSequence::toString) == listOf("Ljava/lang/String;") }
+            .ifEmpty { throw PatchException("Could not find the internal provider URI method") }
+            .forEach { method ->
+                method.addInstructions(
+                    0,
+                    """
+                        new-instance v0, Ljava/lang/StringBuilder;
+                        const-string v1, "content://"
+                        invoke-direct { v0, v1 }, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+                        invoke-virtual { v0, p0 }, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+                        const-string v1, ".passport.internal.provider"
+                        invoke-virtual { v0, v1 }, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+                        invoke-virtual { v0 }, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+                        move-result-object v0
+                        invoke-static { v0 }, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+                        move-result-object v0
+                        return-object v0
+                    """,
+                )
             }
+
+        // Methods that choose the database authority based on the package name.
+        methodsWithString(DATABASE_AUTHORITY_SUFFIX).forEach { mutableMethod ->
             val instructions = mutableMethod.implementation!!.instructions
 
             // Treat the package name as the official one, so the authority declared in the manifest is used.
