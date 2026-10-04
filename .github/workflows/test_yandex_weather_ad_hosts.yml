@@ -1,0 +1,136 @@
+name: Test Yandex Weather ad hosts
+
+# Runs Yandex Weather with ads on an emulator, logs the domains it resolves
+# and checks whether ads are shown while the given domains are blocked.
+# The APK is taken from a release asset (a draft release works) whose name matches the input.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apk_asset:
+        description: Name of the release asset with the original APK or XAPK
+        required: true
+        default: Yandex+Weather+.+Rain+Radar_26.9.50_APKPure.xapk
+      blocked_domains:
+        description: Space separated domains to block, including their subdomains
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PACKAGE: ru.yandex.weatherplugin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Build patches
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORG_GRADLE_PROJECT_githubPackagesUsername: ${{ github.actor }}
+          ORG_GRADLE_PROJECT_githubPackagesPassword: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./gradlew build --no-daemon
+          cp patches/build/libs/patches-*[0-9].rvp ours.rvp
+
+      - name: Download tools and APK
+        run: |
+          mkdir -p test-output
+          gh release download -R ReVanced/revanced-cli --pattern '*-all.jar' -O cli.jar
+          gh release download -R REAndroid/APKEditor --pattern '*.jar' -O apkeditor.jar
+
+          asset_url=$(gh api "repos/${{ github.repository }}/releases" \
+            --jq '.[].assets[] | select(.name == "${{ inputs.apk_asset }}") | .url' | head -n 1)
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" "$asset_url" -o original.input
+
+          if unzip -l original.input | grep -q 'AndroidManifest.xml'; then
+            cp original.input original.apk
+          else
+            java -jar apkeditor.jar m -i original.input -o original.apk
+          fi
+
+      # Ads are not hidden. The app only needs to start without being signed by Yandex.
+      - name: Patch
+        run: |
+          java -jar cli.jar patch original.apk -o patched.apk --exclusive -p ours.rvp -b \
+            -e "Disable account library verification"
+
+      - name: Start DNS server
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq dnsmasq-base
+
+          block_args=""
+          for domain in ${{ inputs.blocked_domains }}; do
+            block_args="$block_args --address=/$domain/0.0.0.0 --address=/$domain/::"
+          done
+          echo "Blocked: ${{ inputs.blocked_domains }}"
+
+          sudo dnsmasq --listen-address=127.0.0.2 --bind-interfaces --no-resolv --server=8.8.8.8 \
+            --log-queries --log-facility=/tmp/dnsmasq.log --pid-file=/tmp/dnsmasq.pid $block_args
+          sudo chmod a+r /tmp/dnsmasq.log
+          dig +short @127.0.0.2 yandex.ru
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -dns-server 127.0.0.2
+          script: |
+            adb wait-for-device
+            adb install patched.apk
+            adb shell pm grant "$PACKAGE" android.permission.ACCESS_FINE_LOCATION
+            adb shell pm grant "$PACKAGE" android.permission.ACCESS_COARSE_LOCATION
+            adb shell pm grant "$PACKAGE" android.permission.POST_NOTIFICATIONS || true
+            adb emu geo fix 37.6173 55.7558
+            adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1
+            sleep 60
+            adb shell uiautomator dump /sdcard/ui-1.xml && adb pull /sdcard/ui-1.xml test-output/ui-1.xml
+            adb shell input swipe 540 1800 540 700 500
+            sleep 15
+            adb shell uiautomator dump /sdcard/ui-2.xml && adb pull /sdcard/ui-2.xml test-output/ui-2.xml
+            adb shell input swipe 540 1800 540 700 500
+            sleep 15
+            adb shell uiautomator dump /sdcard/ui-3.xml && adb pull /sdcard/ui-3.xml test-output/ui-3.xml
+            adb exec-out screencap -p > test-output/screenshot.png
+            adb logcat -d > test-output/logcat.txt
+            echo "Top activity:"; adb shell dumpsys activity activities | grep -E 'topResumedActivity'
+            echo "Visible texts:"; cat test-output/ui-*.xml | grep -oE 'text="[^"]+"' | sort -u | head -n 120
+            if cat test-output/ui-*.xml | grep -qiE 'text="(Реклама|Advertisement|Ad)"'; then echo "RESULT: ADS SHOWN"; else echo "RESULT: NO ADS FOUND"; fi
+
+      - name: Print DNS queries
+        if: always()
+        run: |
+          cp /tmp/dnsmasq.log test-output/dnsmasq.log
+          echo "Resolved domains:"
+          grep -oE 'query\[(A|AAAA)\] [^ ]+' /tmp/dnsmasq.log | awk '{print $2}' | sort | uniq -c | sort -rn
+          echo "Blocked queries:"
+          grep -E 'config .* is (0\.0\.0\.0|::)' /tmp/dnsmasq.log | awk '{print $(NF-2)}' | sort | uniq -c | sort -rn || true
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: test-output
