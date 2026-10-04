@@ -68,6 +68,7 @@ jobs:
             -e "Hide ads" \
             -e "Remove shared permissions" \
             -e "Rename content providers" \
+            -e "Disable account library verification" \
             -e "Change package name" -O "Update permissions=true" -O "Update providers=true" \
             2>&1 | tee test-output/patch.log
 
@@ -110,6 +111,7 @@ jobs:
             pid=$(adb shell pidof "$PATCHED_PACKAGE" || true); echo "Patched app process: ${pid:-not running}"
             grep -E "ActivityTaskManager: (START|Displayed)|ActivityManager: (Start proc|Process .* has died|Killing)" test-output/logcat.txt | grep -E "weatherplugin" | head -n 20 || true
             grep -E -A 40 "FATAL EXCEPTION|Fatal signal|DEBUG   :|ANR in" test-output/logcat.txt | head -n 150 || true
+            grep -E "PassportRuntime|System.exit|SIG: 9" test-output/logcat-original.txt test-output/logcat.txt | head -n 40 || true
             first=$(grep -oE "Start proc [0-9]+:$PATCHED_PACKAGE/" test-output/logcat.txt | head -n 1 | grep -oE "[0-9]+" | head -n 1); echo "First process: $first"; grep -E "^\S+ \S+ +$first " test-output/logcat.txt | tail -n 80 || true
 
       - name: Upload results
