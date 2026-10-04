@@ -8,9 +8,9 @@ private const val PACKAGE_NAME = "ru.yandex.weatherplugin"
 @Suppress("unused")
 val removeSharedPermissionsPatch = resourcePatch(
     name = "Remove shared permissions",
-    description = "Removes the declarations of permissions shared between Yandex apps, " +
+    description = "Removes the declarations of permissions shared with other Yandex apps and the original app, " +
         "such as com.yandex.permission.READ_CREDENTIALS. Otherwise, the patched app can not be installed " +
-        "next to other Yandex apps, because they are signed with a different key. " +
+        "next to them, because they are signed with a different key. " +
         "Signing in with an account from other Yandex apps will not work.",
 ) {
     compatibleWith(PACKAGE_NAME)
