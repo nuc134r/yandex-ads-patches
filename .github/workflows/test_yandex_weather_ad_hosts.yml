@@ -127,7 +127,7 @@ jobs:
             echo "Top activity:"; adb shell dumpsys activity activities | grep -E 'topResumedActivity'
             echo "Visible texts on first launch:"; grep -oE 'text="[^"]+"' test-output/ui-first-launch.xml | sort -u | head -n 60
             echo "Visible texts on second launch:"; cat test-output/ui-[0-9].xml | grep -oE 'text="[^"]+"' | sort -u | head -n 120
-            if cat test-output/ui-[0-9].xml | grep -qiE 'text="(Реклама|Advertisement|Ad)"'; then echo "RESULT: ADS SHOWN"; else echo "RESULT: NO ADS FOUND"; fi
+            if cat test-output/ui-[0-9].xml | grep -qE 'text="(Реклама|Advertisement|Ad)( · [^"]*)?"'; then echo "RESULT: ADS SHOWN"; else echo "RESULT: NO ADS FOUND"; fi
 
       - name: Print DNS queries
         if: always()
