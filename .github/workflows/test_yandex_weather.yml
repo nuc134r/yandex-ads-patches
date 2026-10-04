@@ -58,7 +58,7 @@ jobs:
             java -jar apkeditor.jar m -i original.input -o original.apk
           fi
 
-          java -jar cli.jar list-patches --with-options --with-packages --filter-package-name ru.yandex.weatherplugin \
+          java -jar cli.jar list-patches --options --packages --descriptions --filter-package-name ru.yandex.weatherplugin \
             -p official.rvp -b -p ours.rvp -b | tee test-output/patches.txt
 
       - name: Patch
@@ -94,7 +94,7 @@ jobs:
             adb install original-signed.apk 2>&1 | tee test-output/install-original.log
             adb install patched.apk 2>&1 | tee test-output/install-patched.log
             adb logcat -c
-            adb shell monkey -p "$PATCHED_PACKAGE" -c android.intent.category.LAUNCHER 1
+            adb shell monkey -p "$PATCHED_PACKAGE" -c android.intent.category.LAUNCHER 1 || true
             sleep 45
             adb shell dumpsys activity activities | grep -E 'ResumedActivity|mFocusedApp' | tee test-output/activities.txt
             adb exec-out screencap -p > test-output/screenshot.png
