@@ -1,4 +1,4 @@
-rootProject.name = "revanced-patches-template"
+rootProject.name = "yandex-ads-patches"
 
 pluginManagement {
     repositories {
