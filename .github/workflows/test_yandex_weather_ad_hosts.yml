@@ -105,17 +105,21 @@ jobs:
             adb shell pm grant "$PACKAGE" android.permission.POST_NOTIFICATIONS || true
             adb emu geo fix 37.6173 55.7558
             adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1
-            sleep 60
+            sleep 30
+            .github/scripts/tap-buttons.sh "Continue|Allow|Allow all the time|While using the app|Only this time|Accept|Got it|OK|Skip|Not now|Close|Продолжить|Разрешить|При использовании приложения|Понятно|Пропустить|Не сейчас|Закрыть" 8
+            sleep 30
             adb shell uiautomator dump /sdcard/ui-0.xml && adb pull /sdcard/ui-0.xml test-output/ui-first-launch.xml
             adb shell am force-stop "$PACKAGE"
             sleep 5
             adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1
-            sleep 60
+            sleep 30
+            .github/scripts/tap-buttons.sh "Continue|Allow|Allow all the time|While using the app|Only this time|Accept|Got it|OK|Skip|Not now|Close|Продолжить|Разрешить|При использовании приложения|Понятно|Пропустить|Не сейчас|Закрыть" 4
+            sleep 30
             adb shell uiautomator dump /sdcard/ui-1.xml && adb pull /sdcard/ui-1.xml test-output/ui-1.xml
-            adb shell input swipe 540 1800 540 700 500
+            adb shell input swipe 160 560 160 160 500
             sleep 15
             adb shell uiautomator dump /sdcard/ui-2.xml && adb pull /sdcard/ui-2.xml test-output/ui-2.xml
-            adb shell input swipe 540 1800 540 700 500
+            adb shell input swipe 160 560 160 160 500
             sleep 15
             adb shell uiautomator dump /sdcard/ui-3.xml && adb pull /sdcard/ui-3.xml test-output/ui-3.xml
             adb exec-out screencap -p > test-output/screenshot.png
