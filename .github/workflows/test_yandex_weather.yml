@@ -68,7 +68,7 @@ jobs:
             -e "Hide ads" \
             -e "Remove shared permissions" \
             -e "Rename content providers" \
-            -e "Change package name" -O updatePermissions=true -O updateProviders=true \
+            -e "Change package name" -O "Update permissions=true" -O "Update providers=true" \
             2>&1 | tee test-output/patch.log
 
           # The original app is installed next to the patched app, so it has to be signed.
