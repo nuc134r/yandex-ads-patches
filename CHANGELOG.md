@@ -1,3 +1,17 @@
+# [1.2.0](https://github.com/nuc134r/yandex-ads-patches/compare/v1.1.0...v1.2.0) (2026-10-04)
+
+
+### Bug Fixes
+
+* **Yandex Weather - Disable account library verification:** Disable signature check ([47c6058](https://github.com/nuc134r/yandex-ads-patches/commit/47c60583ff8b322a3e85eefcb30cf6b61886e974))
+* **Yandex Weather - Rename content providers:** Rename account library providers ([27f05f3](https://github.com/nuc134r/yandex-ads-patches/commit/27f05f320ed5616b99f6c8651b0d2dd648bef79b))
+
+
+### Features
+
+* **Yandex Weather:** Add `Disable account library verification` patch ([c812e11](https://github.com/nuc134r/yandex-ads-patches/commit/c812e1117642cb222ae41458c041a862fed6a716))
+* **Yandex Weather:** Add `Rename content providers` patch ([aed9640](https://github.com/nuc134r/yandex-ads-patches/commit/aed9640b00f3774eaa120d214987e5a455dcf1f2))
+
 # [1.1.0](https://github.com/nuc134r/yandex-ads-patches/compare/v1.0.2...v1.1.0) (2026-10-04)
 
 
