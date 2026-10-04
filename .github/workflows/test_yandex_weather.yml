@@ -95,16 +95,22 @@ jobs:
             adb install original-signed.apk 2>&1 | tee test-output/install-original.log
             adb install patched.apk 2>&1 | tee test-output/install-patched.log
             adb logcat -c
+            adb shell monkey -p ru.yandex.weatherplugin -c android.intent.category.LAUNCHER 1 || true
+            sleep 30
+            adb shell dumpsys activity activities | grep -E 'topResumedActivity' | tee test-output/activities-original.txt
+            adb logcat -d > test-output/logcat-original.txt
+            grep -E "ActivityManager: (Start proc|Process .* has died)" test-output/logcat-original.txt | grep -E "ru.yandex.weatherplugin[ /:]" | head -n 20 || true
+            adb shell am force-stop ru.yandex.weatherplugin
+            adb logcat -c
             adb shell monkey -p "$PATCHED_PACKAGE" -c android.intent.category.LAUNCHER 1 || true
             sleep 45
-            adb shell dumpsys activity activities | grep -E 'ResumedActivity|mFocusedApp' | tee test-output/activities.txt
+            adb shell dumpsys activity activities | grep -E 'topResumedActivity' | tee test-output/activities.txt
             adb exec-out screencap -p > test-output/screenshot.png
             adb logcat -d > test-output/logcat.txt
-            adb shell pm list packages | grep yandex | tee test-output/packages.txt
-            pid=$(adb shell pidof "$PATCHED_PACKAGE" || true)
-            echo "Patched app process: ${pid:-not running}"
-            grep -E -A 30 "FATAL EXCEPTION|AndroidRuntime: Process|ANR in" test-output/logcat.txt | head -n 200 || true
-            grep -E "ActivityTaskManager: (START|Displayed)|ActivityManager: (Start proc|Process .* has died|Killing)" test-output/logcat.txt | grep -E "weatherplugin" | head -n 50 || true
+            pid=$(adb shell pidof "$PATCHED_PACKAGE" || true); echo "Patched app process: ${pid:-not running}"
+            grep -E "ActivityTaskManager: (START|Displayed)|ActivityManager: (Start proc|Process .* has died|Killing)" test-output/logcat.txt | grep -E "weatherplugin" | head -n 20 || true
+            grep -E -A 40 "FATAL EXCEPTION|Fatal signal|DEBUG   :|ANR in" test-output/logcat.txt | head -n 150 || true
+            first=$(grep -oE "Start proc [0-9]+:$PATCHED_PACKAGE/" test-output/logcat.txt | head -n 1 | grep -oE "[0-9]+" | head -n 1); echo "First process: $first"; grep -E "^\S+ \S+ +$first " test-output/logcat.txt | tail -n 80 || true
 
       - name: Upload results
         if: always()
