@@ -1,0 +1,109 @@
+name: Test Yandex Weather
+
+# Patches Yandex Weather like ReVanced Manager does,
+# installs it next to the original app on an emulator and checks that it starts.
+# The APK is taken from a release asset (a draft release works) whose name matches the input.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apk_asset:
+        description: Name of the release asset with the original APK or XAPK
+        required: true
+        default: Yandex+Weather+.+Rain+Radar_26.9.50_APKPure.xapk
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PATCHED_PACKAGE: ru.yandex.weatherplugin.revanced
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Build patches
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORG_GRADLE_PROJECT_githubPackagesUsername: ${{ github.actor }}
+          ORG_GRADLE_PROJECT_githubPackagesPassword: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./gradlew build --no-daemon
+          cp patches/build/libs/patches-*[0-9].rvp ours.rvp
+
+      - name: Download tools, official patches and APK
+        run: |
+          mkdir -p test-output
+          gh release download -R ReVanced/revanced-cli --pattern '*-all.jar' -O cli.jar
+          gh release download -R REAndroid/APKEditor --pattern '*.jar' -O apkeditor.jar
+          curl -fsSL "$(curl -fsSL https://api.revanced.app/v5/patches | jq -r .download_url)" -o official.rvp
+
+          asset_url=$(gh api "repos/${{ github.repository }}/releases" \
+            --jq '.[].assets[] | select(.name == "${{ inputs.apk_asset }}") | .url' | head -n 1)
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" "$asset_url" -o original.input
+
+          if unzip -l original.input | grep -q 'AndroidManifest.xml'; then
+            cp original.input original.apk
+          else
+            java -jar apkeditor.jar m -i original.input -o original.apk
+          fi
+
+          java -jar cli.jar list-patches --with-options --with-packages --filter-package-name ru.yandex.weatherplugin \
+            -p official.rvp -b -p ours.rvp -b | tee test-output/patches.txt
+
+      - name: Patch
+        run: |
+          java -jar cli.jar patch original.apk -o patched.apk --exclusive \
+            -p official.rvp -b -p ours.rvp -b \
+            -e "Hide ads" \
+            -e "Remove shared permissions" \
+            -e "Rename content providers" \
+            -e "Change package name" -O updatePermissions=true -O updateProviders=true \
+            2>&1 | tee test-output/patch.log
+
+          # The original app is installed next to the patched app, so it has to be signed.
+          keytool -genkeypair -keystore original.keystore -storepass android -keypass android -alias original \
+            -dname "CN=original" -keyalg RSA -validity 1000
+          "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME"/build-tools | sort -V | tail -n 1)/apksigner sign \
+            --ks original.keystore --ks-pass pass:android --out original-signed.apk original.apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install original-signed.apk 2>&1 | tee test-output/install-original.log
+            adb install patched.apk 2>&1 | tee test-output/install-patched.log
+            adb logcat -c
+            adb shell monkey -p "$PATCHED_PACKAGE" -c android.intent.category.LAUNCHER 1
+            sleep 45
+            adb shell dumpsys activity activities | grep -E 'ResumedActivity|mFocusedApp' | tee test-output/activities.txt
+            adb exec-out screencap -p > test-output/screenshot.png
+            adb logcat -d > test-output/logcat.txt
+            grep -E "AndroidRuntime|FATAL|$PATCHED_PACKAGE|revanced" test-output/logcat.txt | head -n 300 > test-output/logcat-filtered.txt || true
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: test-output
