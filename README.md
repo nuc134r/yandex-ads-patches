@@ -70,6 +70,7 @@ Template repository for ReVanced Patches.
 | App | Patch | Description |
 |-----|-------|-------------|
 | Yandex Weather (`ru.yandex.weatherplugin`) | Hide ads | Stops the Yandex Mobile Ads SDK from loading banner, native, interstitial, rewarded, app open and instream ads. Ad loads fail immediately and banner views collapse. |
+| Yandex Weather (`ru.yandex.weatherplugin`) | Remove shared permissions | Removes permissions shared between Yandex apps, so the patched app installs next to other Yandex apps. Signing in with an account from other Yandex apps will not work. |
 
 To use the patches in ReVanced Manager, add a remote patch bundle with this URL:
 
