@@ -1,6 +1,6 @@
 name: Test Yandex Weather ad hosts
 
-# Runs Yandex Weather with ads on an emulator, logs the domains it resolves
+# Runs Yandex Weather with ads on an emulator twice, as ads are only shown from the second launch, logs the domains it resolves
 # and checks whether ads are shown while the given domains are blocked.
 # The APK is taken from a release asset (a draft release works) whose name matches the input.
 
@@ -106,6 +106,11 @@ jobs:
             adb emu geo fix 37.6173 55.7558
             adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1
             sleep 60
+            adb shell uiautomator dump /sdcard/ui-0.xml && adb pull /sdcard/ui-0.xml test-output/ui-first-launch.xml
+            adb shell am force-stop "$PACKAGE"
+            sleep 5
+            adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1
+            sleep 60
             adb shell uiautomator dump /sdcard/ui-1.xml && adb pull /sdcard/ui-1.xml test-output/ui-1.xml
             adb shell input swipe 540 1800 540 700 500
             sleep 15
@@ -116,8 +121,9 @@ jobs:
             adb exec-out screencap -p > test-output/screenshot.png
             adb logcat -d > test-output/logcat.txt
             echo "Top activity:"; adb shell dumpsys activity activities | grep -E 'topResumedActivity'
-            echo "Visible texts:"; cat test-output/ui-*.xml | grep -oE 'text="[^"]+"' | sort -u | head -n 120
-            if cat test-output/ui-*.xml | grep -qiE 'text="(Реклама|Advertisement|Ad)"'; then echo "RESULT: ADS SHOWN"; else echo "RESULT: NO ADS FOUND"; fi
+            echo "Visible texts on first launch:"; grep -oE 'text="[^"]+"' test-output/ui-first-launch.xml | sort -u | head -n 60
+            echo "Visible texts on second launch:"; cat test-output/ui-[0-9].xml | grep -oE 'text="[^"]+"' | sort -u | head -n 120
+            if cat test-output/ui-[0-9].xml | grep -qiE 'text="(Реклама|Advertisement|Ad)"'; then echo "RESULT: ADS SHOWN"; else echo "RESULT: NO ADS FOUND"; fi
 
       - name: Print DNS queries
         if: always()
