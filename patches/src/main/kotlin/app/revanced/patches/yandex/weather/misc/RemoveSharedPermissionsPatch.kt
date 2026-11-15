@@ -17,6 +17,31 @@ val removeSharedPermissionsPatch = resourcePatch(
 
     apply {
         document("AndroidManifest.xml").use { document ->
+            val elements = document.getElementsByTagName("*")
+            val oldPermissionPrefix = "$PACKAGE_NAME.permission."
+            val newPermissionPrefix = "$PACKAGE_NAME.revanced.permission."
+
+            (0 until elements.length)
+                .map { elements.item(it) as Element }
+                .forEach { element ->
+                    listOf(
+                        "android:name",
+                        "android:permission",
+                        "android:permissionGroup",
+                        "android:readPermission",
+                        "android:writePermission",
+                    )
+                        .forEach { attribute ->
+                            val value = element.getAttribute(attribute)
+                            if (value.startsWith(oldPermissionPrefix)) {
+                                element.setAttribute(
+                                    attribute,
+                                    newPermissionPrefix + value.removePrefix(oldPermissionPrefix),
+                                )
+                            }
+                        }
+                }
+
             val permissions = document.getElementsByTagName("permission")
 
             (0 until permissions.length)
