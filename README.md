@@ -8,12 +8,12 @@
 
 | Patch | Description |
 |-------|-------------|
-| Hide ads | Stops the Yandex Mobile Ads SDK from loading banner, native, interstitial, rewarded, app open and instream ads. Ad loads fail immediately and banner views collapse. |
+| Hide ads | Stops the Yandex Mobile Ads SDK from loading banner, native, feed, interstitial, rewarded, app open and instream ads. Ad loads fail immediately and banner views collapse. |
 | Disable account library verification | Prevents the Yandex account library from closing the app on start, because the patched app is not signed by Yandex. Signing in to a Yandex account may not work. |
-| Remove shared permissions | Removes permissions shared with other Yandex apps and the original app, so the patched app installs next to them. Signing in with an account from other Yandex apps will not work. |
+| Remove shared permissions | Removes shared permissions and renames app-specific permission names to the patched package namespace, so the patched app can be installed next to the original app. Signing in with an account from other Yandex apps will not work. |
 | Rename content providers | Renames the content providers that "Change package name" does not rename, so the patched app installs and starts next to the original app. |
 
-Tested with Yandex Weather 26.9.50.
+Tested with Yandex Weather 26.10.30 on Android 16.
 
 ## 🚀 Usage
 

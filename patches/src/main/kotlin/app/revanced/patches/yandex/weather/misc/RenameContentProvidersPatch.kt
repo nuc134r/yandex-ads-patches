@@ -103,7 +103,7 @@ val renameContentProvidersPatch = bytecodePatch(
     dependsOn(renameContentProvidersResourcePatch)
 
     apply {
-        fun methodsWithString(string: String) = classDefs.flatMap { classDef ->
+        fun methodsWithString(string: String, required: Boolean = true) = classDefs.flatMap { classDef ->
             classDef.methods
                 .filter { method ->
                     method.implementation?.instructions?.any {
@@ -113,7 +113,12 @@ val renameContentProvidersPatch = bytecodePatch(
                     } == true
                 }
                 .map { classDef to it }
-        }.ifEmpty { throw PatchException("Could not find methods using \"$string\"") }.map { (classDef, method) ->
+        }.let { methods ->
+            if (required && methods.isEmpty()) {
+                throw PatchException("Could not find methods using \"$string\"")
+            }
+            methods
+        }.map { (classDef, method) ->
             classDefs.getOrReplaceMutable(classDef).methods.first { MethodUtil.methodSignaturesMatch(it, method) }
         }
 
@@ -141,7 +146,7 @@ val renameContentProvidersPatch = bytecodePatch(
             }
 
         // Methods that choose the database authority based on the package name.
-        methodsWithString(DATABASE_AUTHORITY_SUFFIX).forEach { mutableMethod ->
+        methodsWithString(DATABASE_AUTHORITY_SUFFIX, required = false).forEach { mutableMethod ->
             val instructions = mutableMethod.implementation!!.instructions
 
             // Treat the package name as the official one, so the authority declared in the manifest is used.

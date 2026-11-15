@@ -28,7 +28,7 @@ private fun isAdLoader(type: String) = type.startsWith(ADS_SDK_PACKAGE) &&
 @Suppress("unused")
 val hideAdsPatch = bytecodePatch(
     name = "Hide ads",
-    description = "Prevents the Yandex Mobile Ads SDK from loading banner, native, interstitial, " +
+    description = "Prevents the Yandex Mobile Ads SDK from loading banner, native, feed, interstitial, " +
         "rewarded, app open and instream ads.",
 ) {
     compatibleWith("ru.yandex.weatherplugin")
@@ -60,6 +60,54 @@ val hideAdsPatch = bytecodePatch(
                     mutableClass.methods.first { MethodUtil.methodSignaturesMatch(it, method) }.blockLoad()
                 }
             }
+
+        // Block the app-specific FeedAd entry point.
+        // It must return br.b(false), which AdManager handles as a normal feed-ad load failure.
+        val feedLoadMethods = classDefs.flatMap { classDef ->
+            classDef.methods
+                .filter { method ->
+                    method.name == "a" &&
+                        AccessFlags.PUBLIC.isSet(method.accessFlags) &&
+                        !AccessFlags.STATIC.isSet(method.accessFlags) &&
+                        method.returnType == "Ljava/lang/Object;" &&
+                        method.parameterTypes.size == 7 &&
+                        method.parameterTypes.take(5).map { it.toString() } == listOf(
+                            "Landroid/view/ViewGroup;",
+                            "I",
+                            "Ljava/lang/String;",
+                            "Landroid/location/Location;",
+                            "Ljava/util/Map;",
+                        ) &&
+                        method.implementation != null
+                }
+                .map { classDef to it }
+        }
+
+        if (feedLoadMethods.size != 1) {
+            throw PatchException(
+                "Expected exactly one FeedAd loader entry point, found ${feedLoadMethods.size}",
+            )
+        }
+
+        val failedResultClass = "Lbr\$b;"
+        val failedResultConstructorExists = classDefs.any { classDef ->
+            classDef.type == failedResultClass &&
+                classDef.methods.any { method ->
+                    method.name == "<init>" &&
+                        method.parameterTypes.map { it.toString() } == listOf("Z")
+                }
+        }
+
+        if (!failedResultConstructorExists) {
+            throw PatchException("Could not find the FeedAd failure result constructor")
+        }
+
+        feedLoadMethods.forEach { (classDef, method) ->
+            val mutableClass = classDefs.getOrReplaceMutable(classDef)
+            mutableClass.methods
+                .first { MethodUtil.methodSignaturesMatch(it, method) }
+                .blockFeedAdLoad(failedResultClass)
+        }
     }
 }
 
@@ -105,4 +153,18 @@ private fun MutableMethod.blockLoad() {
 private fun CharSequence.registerSize() = when (toString()) {
     "J", "D" -> 2
     else -> 1
+}
+
+private fun MutableMethod.blockFeedAdLoad(resultClass: String) {
+    // Return the app's normal "feed ad failed to load" result immediately.
+    // p0/p1 are reused because the original method body is bypassed completely.
+    addInstructions(
+        0,
+        """
+            new-instance p0, $resultClass
+            const/4 p1, 0x0
+            invoke-direct {p0, p1}, $resultClass-><init>(Z)V
+            return-object p0
+        """,
+    )
 }
